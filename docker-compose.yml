@@ -1,9 +1,10 @@
 services:
   x-tv:
-#    image: bestzwei/libretv:latest
-#    container_name: libretv
-    image: jxxxuan/x-tv:latest
-    container_name: x-tv
+    image: bestzwei/libretv:latest
+    container_name: libretv
+# 一旦用自己的image 就会少很多api
+#    image: jxxxuan/x-tv:latest
+#    container_name: x-tv
     ports:
       - "8899:8080" # 将内部 8080 端口映射到主机的 8899 端口
     environment:
