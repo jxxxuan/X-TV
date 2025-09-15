@@ -1,5 +1,5 @@
 services:
-  x-tv:
+  libretv:
     image: bestzwei/libretv:latest
     container_name: libretv
 # 一旦用自己的image 就会少很多api
