@@ -22,6 +22,11 @@ services:
     - .:/app
     - /app/node_modules   # 把当前目录映射到容器 /app
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
 #volumes:
 #  libretv_data:
 #    driver: local
