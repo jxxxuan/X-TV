@@ -26,7 +26,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TOKEN}
+    command: tunnel --no-autoupdate run --protocol http2 --token ${CLOUDFLARE_TOKEN}
 
 #volumes:
 #  libretv_data:
