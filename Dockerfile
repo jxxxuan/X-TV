@@ -6,6 +6,8 @@ COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
 
 COPY . .
+ARG BASE_PATH=""
+ENV BASE_PATH=$BASE_PATH
 ENV DOCKER_BUILD=1
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
@@ -14,6 +16,9 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
+ARG BASE_PATH=""
+ENV BASE_PATH=$BASE_PATH
+ENV NEXT_PUBLIC_BASE_PATH=$BASE_PATH
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=8080

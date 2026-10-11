@@ -1,6 +1,7 @@
 'use client';
 
 import type { SearchResponse, SearchStreamEvent, SourceSearchOutcome, VideoDetail, DoubanResponse, BangumiCalendarResponse, AuthStatusResponse, SourceConfig, SearchResultItem, LivePlaylistResponse, LiveEpgResponse, SourceListPayload } from './types';
+import { withBasePath } from './base-path';
 
 /**
  * 客户端 API 封装。401 时触发全局事件打开登录框，
@@ -88,7 +89,7 @@ async function consumeNdjson<T>(res: Response, onEvent: (event: T) => void): Pro
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url, init);
+    res = await fetch(withBasePath(url), init);
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err;
     throw new ApiError('网络请求失败，请检查网络连接', 0);
@@ -251,7 +252,7 @@ export const api = {
     onResult: (result: LiveProbeResult) => void,
     signal?: AbortSignal
   ): Promise<void> => {
-    const res = await fetch('/api/live/probe?stream=1', {
+    const res = await fetch(withBasePath('/api/live/probe?stream=1'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ urls }),
@@ -278,7 +279,7 @@ async function searchStream(
   onSource: (outcome: SourceSearchOutcome) => void,
   signal?: AbortSignal
 ): Promise<SearchResponse> {
-  const res = await fetch('/api/search?stream=1', {
+  const res = await fetch(withBasePath('/api/search?stream=1'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ wd, sources, filterAdult }),

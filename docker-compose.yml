@@ -1,6 +1,9 @@
 services:
   xtv:
-    build: .
+    build:
+      context: .
+      args:
+        - BASE_PATH=${BASE_PATH:-}
     image: ${XTV_IMAGE:-xtv:latest}
     container_name: xtv
     restart: unless-stopped
@@ -17,6 +20,7 @@ services:
       - USERNAME=${USERNAME:-admin}
       - SITE_NAME=${SITE_NAME:-X-TV}
       - SQLITE_DB_PATH=/app/data/xtv.sqlite
+      - BASE_PATH=${BASE_PATH:-}
       # 预置源若在 .env 中配置会自动注入容器
       - DEFAULT_SOURCES=${DEFAULT_SOURCES:-}
       - DEFAULT_LIVE_SOURCES=${DEFAULT_LIVE_SOURCES:-}

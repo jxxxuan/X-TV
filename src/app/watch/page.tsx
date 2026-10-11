@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client-api';
+import { withBasePath } from '@/lib/base-path';
 // 播放器（artplayer + hls.js）按需加载：拆出独立 chunk，不占首屏 First Load JS
 const PlayerShell = dynamic(() => import('@/components/player-shell').then((m) => m.PlayerShell), {
   ssr: false,
@@ -134,7 +135,7 @@ function WatchContent() {
 
   useEffect(() => {
     if (!sourceKey || !vodId) return;
-    fetch(`/api/skipconfigs?source=${encodeURIComponent(sourceKey)}&id=${encodeURIComponent(vodId)}`)
+    fetch(withBasePath(`/api/skipconfigs?source=${encodeURIComponent(sourceKey)}&id=${encodeURIComponent(vodId)}`))
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) {
@@ -150,7 +151,7 @@ function WatchContent() {
   const handleSetSkipTimes = useCallback((start: number, end: number) => {
     setSkipTimes({ skipStart: start, skipEnd: end });
     if (!sourceKey || !vodId) return;
-    fetch('/api/skipconfigs', {
+    fetch(withBasePath('/api/skipconfigs'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -170,7 +171,7 @@ function WatchContent() {
         updateHistoryProgress(sourceKey, vodId || currentUrl, position, duration).catch(() => {});
 
         // 增量同步到服务端（供 TV 客户端和跨设备漫游使用）
-        fetch('/api/playrecords', {
+        fetch(withBasePath('/api/playrecords'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

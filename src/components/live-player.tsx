@@ -15,10 +15,12 @@ import { Spinner } from './states';
  * - 直播态 UI：无进度条、无倍速、无截图、无连播。
  */
 
+import { withBasePath } from '@/lib/base-path';
+
 /** 代理地址前缀（新旧形式 /api/live/stream/… 与 /api/live/stream?url=… 的共同前缀，用于防二次代理） */
-const STREAM_PROXY_PREFIX = '/api/live/stream';
+const STREAM_PROXY_PREFIX = withBasePath('/api/live/stream');
 /** 代理地址（查询串形式：路径里的 %2F 会被 EdgeOne 等网关归一化，查询串不受影响） */
-const STREAM_PROXY_BASE = '/api/live/stream?url=';
+const STREAM_PROXY_BASE = withBasePath('/api/live/stream?url=');
 
 export function isFlvUrl(url: string): boolean {
   return /\.flv(\?|$)/i.test(url);
