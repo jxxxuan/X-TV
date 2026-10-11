@@ -19,15 +19,17 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=8080
 ENV HOSTNAME=0.0.0.0
 
-# 非 root 用户
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
-RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
+# 安装轻量级 su-exec 供 entrypoint 降权使用，并创建 nextjs 用户
+RUN apk add --no-cache su-exec && \
+    addgroup -S nodejs && adduser -S nextjs -G nodejs && \
+    mkdir -p /app/data && chown nextjs:nodejs /app/data
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-
-USER nextjs
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
