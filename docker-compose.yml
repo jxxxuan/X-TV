@@ -1,3 +1,5 @@
+name: xtv
+
 services:
   xtv:
     build:
