@@ -37,9 +37,14 @@ function formatProbeProgress(p: { done: number; total: number; startedAt: number
   const base = `${p.done}/${p.total}`;
   const remaining = p.total - p.done;
   if (remaining <= 0) return base;
-  if (p.done <= 0) return `${base} · 估算中…`;
-  const remainMin = Math.ceil(((Date.now() - p.startedAt) / p.done) * remaining / 60000);
-  return `${base} · 预计剩余 ${Math.max(1, remainMin)} 分钟`;
+  if (p.done <= 0) return `${base} · 准备中…`;
+  const elapsed = Date.now() - p.startedAt;
+  const remainSec = Math.round((elapsed / p.done) * remaining / 1000);
+  if (remainSec < 60) {
+    return `${base} · 约 ${Math.max(1, remainSec)} 秒`;
+  }
+  const remainMin = Math.ceil(remainSec / 60);
+  return `${base} · 约 ${remainMin} 分钟`;
 }
 
 export interface LiveChannelItem extends LiveChannel {
@@ -271,73 +276,173 @@ export function LiveChannelList({ channels, groups, currentUrl, onSelect, onFilt
       </div>
 
       {/* 测活 + 可用性筛选工具条 */}
-      <div className="flex items-center gap-1.5 px-3 pb-2 shrink-0 flex-wrap">
-        <button
-          className="btn-ghost btn-sm"
-          disabled={isProbing || filtered.length === 0}
-          onClick={() => void probe(filtered)}
-          title="探测当前列表频道是否可播（分片级校验；量大时自动分批排队跑完，结果 6 小时内有效）"
-        >
-          测活
-        </button>
-        {/* 同一操作位按时机切换：测活中=取消（保留已完成结果）；空闲且有结果=清除全部 */}
-        {isProbing ? (
+      <div className="px-3 pb-2 shrink-0 space-y-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* 一键测活 / 重新测活主按钮 */}
           <button
-            className="btn-ghost btn-sm"
-            onClick={cancelProbe}
-            title="中止本次测活，已完成的结果会保留"
+            type="button"
+            className={cn(
+              'btn btn-sm text-xs font-medium transition-all shadow-xs flex items-center gap-1.5',
+              isProbing
+                ? 'bg-accent/15 text-accent border border-accent/40 cursor-wait'
+                : probeResults.size > 0
+                  ? 'bg-chip text-content hover:bg-hover border border-line'
+                  : 'bg-accent text-on-accent hover:bg-accent-hover'
+            )}
+            disabled={isProbing ? false : matched.length === 0}
+            onClick={() => {
+              if (isProbing) {
+                cancelProbe();
+              } else if (probeResults.size > 0) {
+                void probe(matched, { force: true });
+              } else {
+                void probe(matched);
+              }
+            }}
+            title={
+              isProbing
+                ? '正在深度测活，点击可中止'
+                : probeResults.size > 0
+                  ? '重新测活：强制重新检测当前列表所有频道的连通性与画质速率'
+                  : '一键测活：深度校验分片可播性与下载速率，智能识别失效与锁区频道'
+            }
           >
-            取消
+            {isProbing ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin text-accent" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>测活中 ({probeProgress?.done}/{probeProgress?.total})</span>
+              </>
+            ) : probeResults.size > 0 ? (
+              <>
+                <svg className="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>重新测活</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.381z" clipRule="evenodd" />
+                </svg>
+                <span>一键测活</span>
+              </>
+            )}
           </button>
-        ) : (
-          probeResults.size > 0 && (
+
+          {/* 测活进行时：取消按钮 */}
+          {isProbing && (
             <button
-              className="btn-ghost btn-sm"
+              type="button"
+              className="btn-ghost btn-sm text-xs px-2 py-1 text-danger hover:bg-danger/10 border border-line"
+              onClick={cancelProbe}
+              title="中止本次测活（已完成的结果会保留）"
+            >
+              取消
+            </button>
+          )}
+
+          {/* 测活结束有结果：清除按钮 */}
+          {!isProbing && probeResults.size > 0 && (
+            <button
+              type="button"
+              className="btn-ghost btn-sm text-xs px-2 py-1 text-muted hover:text-danger hover:bg-danger/10 border border-line"
               onClick={() => {
                 clearProbe();
                 setAliveFilter('off');
               }}
-              title="清除全部测活结果，并取消可用性筛选"
+              title="清除全部测活结果并重置筛选"
             >
               清除
             </button>
-          )
-        )}
+          )}
+
+          {/* 筛选过滤胶囊（测活有结果后展示） */}
+          {probeResults.size > 0 && (
+            <>
+              <button
+                type="button"
+                className={cn(
+                  'shrink-0 px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all border flex items-center gap-1',
+                  aliveFilter === 'green'
+                    ? 'bg-success/20 text-success border-success/40 shadow-xs'
+                    : 'bg-chip text-muted border-line hover:text-content hover:bg-hover'
+                )}
+                onClick={() => setAliveFilter((v) => (v === 'green' ? 'off' : 'green'))}
+                title="只看分片级验证通过且速率达标的流畅频道（置信度最高，海外网络首选）"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+                <span>极速稳定</span>
+                <span className="opacity-80">({aliveCounts.green})</span>
+              </button>
+
+              <button
+                type="button"
+                className={cn(
+                  'shrink-0 px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all border flex items-center gap-1',
+                  aliveFilter === 'ok'
+                    ? 'bg-accent/20 text-accent border-accent/40 shadow-xs'
+                    : 'bg-chip text-muted border-line hover:text-content hover:bg-hover'
+                )}
+                onClick={() => setAliveFilter((v) => (v === 'ok' ? 'off' : 'ok'))}
+                title="看所有验证通过（含直链/清单级弱验证）的频道"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                <span>全部可用</span>
+                <span className="opacity-80">({aliveCounts.ok})</span>
+              </button>
+
+              {aliveFilter !== 'off' && (
+                <button
+                  type="button"
+                  className="text-[11px] text-faint hover:text-content px-1.5 py-0.5 rounded transition-colors"
+                  onClick={() => setAliveFilter('off')}
+                  title="恢复显示所有频道"
+                >
+                  显示全部
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* 探测进度条（测活中） */}
         {isProbing && probeProgress && (
-          <span className="text-[10px] text-faint whitespace-nowrap">
-            探测中 {formatProbeProgress(probeProgress)}
-          </span>
+          <div className="bg-chip/60 border border-line/60 rounded-md p-2 space-y-1">
+            <div className="flex items-center justify-between text-[10px] text-muted">
+              <span className="flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                <span>分片级连通探测中...</span>
+              </span>
+              <span className="font-mono text-faint">{formatProbeProgress(probeProgress)}</span>
+            </div>
+            <div className="w-full h-1 bg-surface rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent transition-all duration-300 rounded-full"
+                style={{
+                  width: `${probeProgress.total > 0 ? Math.min(100, Math.round((probeProgress.done / probeProgress.total) * 100)) : 0}%`,
+                }}
+              />
+            </div>
+          </div>
         )}
+
+        {/* 提示文案 */}
         {probeHint && (
-          <span className="text-[10px] text-faint">{probeHint}</span>
-        )}
-        {probeResults.size > 0 && !isProbing && (
-          <>
-            <button
-              className={cn(
-                'shrink-0 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap transition-colors border',
-                aliveFilter === 'green'
-                  ? 'bg-accent text-on-accent border-accent'
-                  : 'bg-chip text-muted border-line hover:text-content hover:bg-hover'
-              )}
-              onClick={() => setAliveFilter((v) => (v === 'green' ? 'off' : 'green'))}
-              title="只看分片级验证通过的频道"
-            >
-              绿点 {aliveCounts.green}
-            </button>
-            <button
-              className={cn(
-                'shrink-0 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap transition-colors border',
-                aliveFilter === 'ok'
-                  ? 'bg-accent text-on-accent border-accent'
-                  : 'bg-chip text-muted border-line hover:text-content hover:bg-hover'
-              )}
-              onClick={() => setAliveFilter((v) => (v === 'ok' ? 'off' : 'ok'))}
-              title="看所有验证通过（含直链/清单级弱验证）的频道"
-            >
-              可播 {aliveCounts.ok}
-            </button>
-          </>
+          <div className="text-[11px] text-accent px-2 py-1 rounded bg-accent/10 flex items-center justify-between">
+            <span>{probeHint}</span>
+            {probeResults.size > 0 && aliveFilter === 'off' && aliveCounts.ok > 0 && (
+              <button
+                type="button"
+                className="underline hover:opacity-80 text-[10px] ml-2"
+                onClick={() => setAliveFilter('green')}
+              >
+                点此过滤失效
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -482,8 +587,8 @@ const ChannelRow = memo(function ChannelRow({
         ? `源限速${speedText.replace(' · ', ' ')}，缓冲跟不上，可能无法流畅播放`
         : `${levelText}${speedText}${probe.ms != null && probe.level === 'segment' ? ` · 延迟 ${probe.ms}ms` : ''}${isHevc ? ' · H.265 编码，需 Edge/Safari' : ''}`
       : probe.timedOut
-        ? `${probe.error || '探测超时'} · 源可能只是慢，可直接试播确认`
-        : probe.error || '不可用'
+        ? `${probe.error || '探测超时'} · 源可能响应慢，或因海外网络地区限制`
+        : `${probe.error || '不可用'} · 该源可能受海外地区限制或已失效`
     : undefined;
 
   return (
@@ -494,7 +599,8 @@ const ChannelRow = memo(function ChannelRow({
         className={cn(
           'group flex items-center gap-2.5 px-2 py-2 rounded-md cursor-pointer transition-colors relative',
           active ? 'bg-accent/10' : 'hover:bg-hover',
-          cursor && 'ring-1 ring-accent/70'
+          cursor && 'ring-1 ring-accent/70',
+          probe && !probe.ok && 'opacity-65 hover:opacity-100'
         )}
         onClick={() => onSelect(channel)}
       >
@@ -533,16 +639,26 @@ const ChannelRow = memo(function ChannelRow({
             </span>
             {isHevc && (
               <span
-                className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning"
+                className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[9px] font-medium text-warning"
                 title="H.265 编码：测活通过但 Chromium 内核通常无法解码，建议用 Edge/Safari"
               >
                 H.265
               </span>
             )}
           </div>
-          {channel.group && (
-            <div className="text-[10px] text-faint truncate">{channel.group}</div>
-          )}
+          <div className="flex items-center gap-1.5 text-[10px] text-faint truncate mt-0.5">
+            {channel.group && <span className="truncate">{channel.group}</span>}
+            {probe?.ok && probe.ms != null && probe.level === 'segment' && (
+              <span className={cn('shrink-0 font-mono text-[9px] px-1 rounded bg-surface/80', slow ? 'text-warning' : 'text-success')}>
+                {probe.ms}ms{probe.kbps && probe.kbps >= 1000 ? ` · ${(probe.kbps / 1000).toFixed(1)}M` : ''}
+              </span>
+            )}
+            {probe && !probe.ok && (
+              <span className="shrink-0 text-danger/80 text-[9px]">
+                {probe.timedOut ? '超时' : '不可播'}
+              </span>
+            )}
+          </div>
         </div>
         {/* 最近观看单条删除（仅最近视图；移动端常显） */}
         {onRemoveRecent && (

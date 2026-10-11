@@ -48,6 +48,8 @@ function LiveContent() {
   const liveFavorites = useAppStore((s) => s.liveFavorites);
   const imageProxyMode = useAppStore((s) => s.imageProxyMode);
   const customImageProxy = useAppStore((s) => s.customImageProxy);
+  const currentUrl = searchParams.get('url') || '';
+  const currentProbe = useAppStore((s) => (currentUrl ? s.liveProbeResults[currentUrl] : undefined));
   const { verified } = useAuth();
   const [copied, setCopied] = useState(false);
   // 移动端频道抽屉开合
@@ -99,7 +101,6 @@ function LiveContent() {
   }, [playlistsQuery.data]);
 
   // 当前频道：优先取列表内完整对象（含台标），否则由 URL 参数重建
-  const currentUrl = searchParams.get('url') || '';
   const currentChannel = useMemo(() => {
     const found = channels.find((c) => c.url === currentUrl);
     if (found) return found;
@@ -271,6 +272,30 @@ function LiveContent() {
                     <h1 className="text-sm font-semibold text-content truncate">{currentChannel.name}</h1>
                     {currentChannel.group && (
                       <span className="tag bg-chip text-faint shrink-0">{currentChannel.group}</span>
+                    )}
+                    {currentProbe && (
+                      <span
+                        className={cn(
+                          'tag text-[10px] shrink-0 font-mono flex items-center gap-1',
+                          currentProbe.ok
+                            ? 'bg-success/15 text-success border border-success/30'
+                            : 'bg-danger/15 text-danger border border-danger/30'
+                        )}
+                        title={
+                          currentProbe.ok
+                            ? `分片已验证 · 延迟 ${currentProbe.ms ?? '?'}ms${currentProbe.kbps ? ` · 速率 ≈${(currentProbe.kbps / 1000).toFixed(1)}Mbps` : ''}`
+                            : `探测失败: ${currentProbe.error || (currentProbe.timedOut ? '连接超时（海外可能受限）' : '无法播放')}`
+                        }
+                      >
+                        <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', currentProbe.ok ? 'bg-success' : 'bg-danger')} />
+                        {currentProbe.ok ? (
+                          <span>
+                            可用{currentProbe.ms != null ? ` · ${currentProbe.ms}ms` : ''}
+                          </span>
+                        ) : (
+                          <span>{currentProbe.timedOut ? '超时' : '未通/受限'}</span>
+                        )}
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-faint truncate mt-0.5">{currentChannel.url}</p>

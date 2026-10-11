@@ -27,6 +27,11 @@ export interface ProbeResult {
   kbps?: number;
 }
 
+export interface ProbeOptions {
+  /** 强制全量重测（忽略 6 小时 TTL 缓存） */
+  force?: boolean;
+}
+
 const CHUNK_SIZE = 50;
 /** 同时在途的批次数：与 CHUNK_SIZE 相乘即最大并发探测规模 */
 const CHUNK_CONCURRENCY = 2;
@@ -35,7 +40,7 @@ const CHUNK_CONCURRENCY = 2;
  * 只防病态超大列表（如数十万行的脏 M3U）拖死浏览器与服务端，超出部分提示后丢弃。
  */
 const MAX_TARGETS = 20_000;
-/** 流式结果的写回节流间隔：把高频到达的结果合并成一次 store 更新 */
+/** 流式结果的写回节流间隔：把高频到达的结果合并成一次 store更新 */
 const FLUSH_INTERVAL_MS = 200;
 
 export function useLiveProbe() {
@@ -112,7 +117,7 @@ export function useLiveProbe() {
   }, []);
 
   const probe = useCallback(
-    async (targets: { url: string }[]) => {
+    async (targets: { url: string }[], options?: ProbeOptions) => {
       const allUrls = [...new Set(targets.map((t) => t.url))];
       if (allUrls.length === 0) return;
       if (allUrls.length > MAX_TARGETS) {
@@ -120,15 +125,17 @@ export function useLiveProbe() {
       }
       const urls = allUrls.slice(0, MAX_TARGETS);
 
-      // 6 小时内已测过的直接复用，仅补测缺失或过期的频道
+      // 6 小时内已测过的直接复用，仅补测缺失或过期的频道（options.force 则全量重测）
       const now = Date.now();
       const cached = useAppStore.getState().liveProbeResults;
-      const stale = urls.filter((u) => {
-        const e = cached[u];
-        return !e || now - e.timestamp >= LIVE_PROBE_TTL_MS;
-      });
+      const stale = options?.force
+        ? urls
+        : urls.filter((u) => {
+            const e = cached[u];
+            return !e || now - e.timestamp >= LIVE_PROBE_TTL_MS;
+          });
       if (stale.length === 0) {
-        showHint('测活结果 6 小时内有效，无需重测');
+        showHint('测活结果 6 小时内有效，无需重测（如需强制重测可点击重新测活）');
         return;
       }
 
@@ -212,6 +219,7 @@ export function useLiveProbe() {
       if (runIdRef.current !== runId) return;
       flush();
       setProgress(null);
+      showHint(`测活完成，共检测 ${stale.length} 个频道`);
       if (abortRef.current === controller) abortRef.current = null;
     },
     [showHint]

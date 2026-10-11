@@ -12,3 +12,8 @@ vitest-results.json
 .zcode/
 .codebuddy/
 generated-images/
+
+# 本地数据目录与 SQLite 数据库
+data/
+*.sqlite
+*.sqlite-journal
